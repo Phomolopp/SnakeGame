@@ -3,32 +3,98 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Snake Game</title>
+  <meta name="description" content="A modern, responsive Snake game built as a portfolio project.">
+  <title>Snake Rush</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="container">
-    <canvas id="gameCanvas"></canvas>
-    <div class="score">Score: <span id="score">0</span></div>
-    <div id="gameOverMessage" class="game-over">
-      Game Over!
-      <button id="restart" class="restart-button">Restart</button>
-    </div>
-    <div class="controls">
-  <button id="up" class="control-button">↑</button>
-  <div class="middle-row">
-    <button id="left" class="control-button">←</button>
-    <div class="spacer"></div>
-    <button id="right" class="control-button">→</button>
-  </div>
-  <button id="down" class="control-button">↓</button>
-</div>
-<div class="score">
-  Score: <span id="score">0</span> | High Score: <span id="highScore">0</span>
-</div>
+  <main class="app-shell">
+    <section class="game-panel" aria-labelledby="gameTitle">
+      <div class="topbar">
+        <div>
+          <p class="eyebrow">Portfolio arcade</p>
+          <h1 id="gameTitle">Snake Rush</h1>
+        </div>
+        <button id="soundToggle" class="icon-button" type="button" aria-label="Toggle sound" title="Toggle sound">
+          <span aria-hidden="true">&#9834;</span>
+        </button>
+      </div>
 
+      <div class="stats-grid" aria-label="Game stats">
+        <div class="stat">
+          <span>Score</span>
+          <strong id="score">0</strong>
+        </div>
+        <div class="stat">
+          <span>Best</span>
+          <strong id="highScore">0</strong>
+        </div>
+        <div class="stat">
+          <span>Level</span>
+          <strong id="level">1</strong>
+        </div>
+        <div class="stat">
+          <span>Combo</span>
+          <strong id="combo">x1</strong>
+        </div>
+      </div>
 
-  </div>
+      <div class="board-wrap">
+        <canvas id="gameCanvas" width="520" height="520" aria-label="Snake Rush game board"></canvas>
+        <div id="toast" class="toast" aria-live="polite"></div>
+        <div id="messageLayer" class="message-layer">
+          <p id="messageKicker">Ready?</p>
+          <h2 id="messageTitle">Eat, dash, survive.</h2>
+          <p id="messageText">Use arrows, WASD, swipe, or the pad below.</p>
+          <button id="primaryAction" class="primary-button" type="button">Start game</button>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button id="pauseButton" class="secondary-button" type="button">Pause</button>
+        <button id="restart" class="secondary-button" type="button">Restart</button>
+      </div>
+    </section>
+
+    <aside class="side-panel" aria-label="Game details">
+      <div class="status-strip">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Waiting for first move</span>
+      </div>
+
+      <div class="info-block">
+        <h2>Power snacks</h2>
+        <div class="legend">
+          <span><i class="legend-dot apple"></i> Apple +1</span>
+          <span><i class="legend-dot star"></i> Star +3</span>
+          <span><i class="legend-dot bonus"></i> Bonus rush</span>
+          <span><i class="legend-dot shield"></i> Shield</span>
+          <span><i class="legend-dot shrink"></i> Trim tail</span>
+        </div>
+      </div>
+
+      <div class="info-block mission-card">
+        <h2>Current dare</h2>
+        <p id="missionText">Grab 3 snacks without crashing.</p>
+      </div>
+
+      <div class="info-block">
+        <h2>Controls</h2>
+        <p>Arrow keys, WASD, touch swipes, or the on-screen pad all work.</p>
+      </div>
+
+      <div class="controls" aria-label="Touch controls">
+        <button id="up" class="control-button" type="button" aria-label="Move up">&uarr;</button>
+        <button id="left" class="control-button" type="button" aria-label="Move left">&larr;</button>
+        <button id="down" class="control-button" type="button" aria-label="Move down">&darr;</button>
+        <button id="right" class="control-button" type="button" aria-label="Move right">&rarr;</button>
+      </div>
+    </aside>
+  </main>
+
   <script src="script.js"></script>
 </body>
 </html>
