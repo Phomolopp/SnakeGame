@@ -121,7 +121,7 @@ h1 {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
   margin: 22px 0 16px;
 }
@@ -262,6 +262,12 @@ canvas {
 .secondary-button {
   flex: 1;
   background: var(--panel-strong);
+}
+
+.secondary-button:disabled {
+  color: rgba(247, 251, 255, 0.45);
+  cursor: not-allowed;
+  transform: none;
 }
 
 .icon-button {
@@ -466,6 +472,10 @@ body.is-rush {
 
   .controls {
     margin-top: 0;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 

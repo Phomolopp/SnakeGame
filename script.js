@@ -5,6 +5,7 @@ const scoreElement = document.getElementById("score");
 const highScoreElement = document.getElementById("highScore");
 const levelElement = document.getElementById("level");
 const comboElement = document.getElementById("combo");
+const livesElement = document.getElementById("lives");
 const messageLayer = document.getElementById("messageLayer");
 const messageKicker = document.getElementById("messageKicker");
 const messageTitle = document.getElementById("messageTitle");
@@ -12,6 +13,7 @@ const messageText = document.getElementById("messageText");
 const primaryAction = document.getElementById("primaryAction");
 const toast = document.getElementById("toast");
 const missionText = document.getElementById("missionText");
+const dashButton = document.getElementById("dashButton");
 const pauseButton = document.getElementById("pauseButton");
 const restartButton = document.getElementById("restart");
 const soundToggle = document.getElementById("soundToggle");
@@ -46,6 +48,7 @@ let particles = [];
 let score = 0;
 let highScore = Number(localStorage.getItem(storageKey)) || 0;
 let level = 1;
+let lives = 3;
 let moves = 0;
 let shieldMoves = 0;
 let nextPowerScore = 5;
@@ -53,6 +56,9 @@ let combo = 1;
 let streak = 0;
 let snacksThisRun = 0;
 let nextBonusScore = 8;
+let dashMoves = 0;
+let dashCharges = 2;
+let nextDashRecharge = 5;
 let toastTimer = null;
 let gameState = "ready";
 let tickTimer = null;
@@ -93,6 +99,7 @@ function resetGame(startNow = false) {
   particles = [];
   score = 0;
   level = 1;
+  lives = 3;
   moves = 0;
   shieldMoves = 0;
   nextPowerScore = 5;
@@ -100,13 +107,17 @@ function resetGame(startNow = false) {
   streak = 0;
   snacksThisRun = 0;
   nextBonusScore = 8;
+  dashMoves = 0;
+  dashCharges = 2;
+  nextDashRecharge = 5;
   document.body.classList.remove("is-rush");
 
   updateStats();
-  setStatus(startNow ? "playing" : "ready");
+  setStatus("ready");
   updateMission();
-  showMessage("Ready?", "Eat, dash, survive.", "Chain snacks for combos and chase bonus rushes.", "Start game");
+  showMessage("Ready?", "Eat, dash, survive.", "Chain snacks, spend lives wisely, and dash for bonus rushes.", "Start game");
   pauseButton.textContent = "Pause";
+  updateDashButton();
   clearLoop();
 
   if (startNow) {
@@ -165,21 +176,53 @@ function clearLoop() {
 }
 
 function getSpeed() {
-  return Math.max(62, 145 - (level - 1) * 10);
+  const baseSpeed = Math.max(62, 145 - (level - 1) * 10);
+  return dashMoves > 0 ? Math.max(42, baseSpeed - 34) : baseSpeed;
 }
 
 function tick() {
   direction = nextDirection;
+  const levelBeforeMove = level;
 
   const head = snake[0];
   const nextHead = wrapCell({
     x: head.x + direction.x,
     y: head.y + direction.y
   });
-  const hitSelf = snake.some(part => part.x === nextHead.x && part.y === nextHead.y);
+  const growsThisMove = isSameCell(nextHead, snack);
+  const selfCollisionParts = growsThisMove ? snake : snake.slice(0, -1);
+  const hitSelf = selfCollisionParts.some(part => part.x === nextHead.x && part.y === nextHead.y);
   const hitHazard = hazards.some(hazard => hazard.x === nextHead.x && hazard.y === nextHead.y);
 
-  if ((hitSelf || hitHazard) && shieldMoves <= 0) {
+  if (hitSelf || hitHazard) {
+    if (shieldMoves > 0) {
+      clearHazardAt(nextHead);
+      clearSnakeAt(nextHead);
+      shieldMoves = Math.max(0, shieldMoves - 8);
+      announce("Shield blocked it");
+    } else {
+      loseLife(nextHead);
+      return;
+    }
+  }
+
+  if (dashMoves > 0) {
+    dashMoves -= 1;
+    if (dashMoves === 0) {
+      scheduleLoop();
+      updateDashButton();
+    }
+  }
+
+  if (dashMoves > 0 && !document.body.classList.contains("is-rush")) {
+    document.body.classList.add("is-rush");
+  }
+
+  if (dashMoves === 0 && !bonusSnack) {
+    document.body.classList.remove("is-rush");
+  }
+
+  if (lives <= 0) {
     endGame(nextHead);
     return;
   }
@@ -216,6 +259,10 @@ function tick() {
     collectPowerUp();
   }
 
+  if (levelBeforeMove !== level) {
+    announce(`Level ${level}`);
+  }
+
   if (moves % 22 === 0) {
     addHazard();
   }
@@ -246,6 +293,7 @@ function eatSnack() {
   const points = snack.type === "star" ? 3 : 1;
   streak += 1;
   snacksThisRun += 1;
+  rechargeDash();
   combo = Math.min(5, 1 + Math.floor(streak / 3));
   score += points * combo;
   level = Math.floor(score / 7) + 1;
@@ -263,6 +311,8 @@ function eatBonusSnack() {
   const bonus = 6 + combo * 2;
   score += bonus;
   streak += 2;
+  snacksThisRun += 1;
+  rechargeDash();
   combo = Math.min(5, combo + 1);
   level = Math.floor(score / 7) + 1;
   burst(bonusSnack, snackColor("bonus"), 30);
@@ -291,6 +341,75 @@ function collectPowerUp() {
   burst(powerUp, snackColor(powerUp.type), 18);
   updateStats();
   powerUp = null;
+}
+
+function loseLife(cell) {
+  lives -= 1;
+  streak = 0;
+  combo = 1;
+  dashMoves = 0;
+  shieldMoves = lives > 0 ? 16 : 0;
+  burst(cell, "#ff5b68", 22);
+  updateStats();
+  updateDashButton();
+
+  if (lives <= 0) {
+    endGame(cell);
+    return;
+  }
+
+  resetSnakePosition();
+  clearLoop();
+  announce(`${lives} ${lives === 1 ? "life" : "lives"} left`);
+  draw();
+  window.setTimeout(() => {
+    if (gameState === "playing") {
+      scheduleLoop();
+    }
+  }, 420);
+}
+
+function resetSnakePosition() {
+  const middle = Math.floor(cellCount / 2);
+  snake = [
+    { x: middle - 1, y: middle },
+    { x: middle - 2, y: middle },
+    { x: middle - 3, y: middle }
+  ];
+  direction = directions.Right;
+  nextDirection = directions.Right;
+}
+
+function clearHazardAt(cell) {
+  hazards = hazards.filter(hazard => !isSameCell(hazard, cell));
+}
+
+function clearSnakeAt(cell) {
+  snake = snake.filter(part => !isSameCell(part, cell));
+}
+
+function activateDash() {
+  if (gameState === "ready") {
+    startGame();
+  }
+
+  if (gameState !== "playing" || dashCharges <= 0 || dashMoves > 0) return;
+
+  dashCharges -= 1;
+  dashMoves = 5;
+  document.body.classList.add("is-rush");
+  announce("Dash");
+  updateDashButton();
+  scheduleLoop();
+  playTone(1040, 0.06);
+}
+
+function rechargeDash() {
+  if (snacksThisRun < nextDashRecharge || dashCharges >= 3) return;
+  dashCharges += 1;
+  nextDashRecharge += 5;
+  announce("Dash recharged");
+  updateDashButton();
 }
 
 function endGame(cell) {
@@ -575,6 +694,7 @@ function updateStats() {
   scoreElement.textContent = score;
   levelElement.textContent = level;
   comboElement.textContent = `x${combo}`;
+  livesElement.textContent = lives;
   comboElement.parentElement.classList.toggle("is-hot", combo >= 3);
 
   if (score > highScore) {
@@ -583,11 +703,23 @@ function updateStats() {
   }
 
   highScoreElement.textContent = highScore;
+  updateDashButton();
+}
+
+function updateDashButton() {
+  const label = dashMoves > 0 ? `Dashing ${dashMoves}` : `Dash ${dashCharges}/3`;
+  dashButton.textContent = label;
+  dashButton.disabled = gameState === "over" || dashCharges <= 0 || dashMoves > 0;
 }
 
 function updateMission() {
   if (snacksThisRun < 3) {
     missionText.textContent = `Grab ${3 - snacksThisRun} more snack${3 - snacksThisRun === 1 ? "" : "s"} to wake up combos.`;
+    return;
+  }
+
+  if (dashCharges < 3 && snacksThisRun < nextDashRecharge) {
+    missionText.textContent = `Grab ${nextDashRecharge - snacksThisRun} more snack${nextDashRecharge - snacksThisRun === 1 ? "" : "s"} to recharge Dash.`;
     return;
   }
 
@@ -637,34 +769,41 @@ function setStatus(status) {
     statusDot.classList.add("playing");
     statusText.textContent = shieldMoves > 0 ? `Shielded for ${shieldMoves} moves` : "Snake is moving";
     gameState = "playing";
+    updateDashButton();
     return;
   }
 
   if (status === "shield") {
     statusDot.classList.add("playing");
     statusText.textContent = `Shielded for ${shieldMoves} moves`;
+    updateDashButton();
     return;
   }
 
   if (status === "rush") {
     statusDot.classList.add("rush");
     statusText.textContent = "Bonus rush is live";
+    updateDashButton();
     return;
   }
 
   if (status === "paused") {
     statusText.textContent = "Paused";
+    updateDashButton();
     return;
   }
 
   if (status === "over") {
     statusDot.classList.add("danger");
     statusText.textContent = "Game over";
+    gameState = "over";
+    updateDashButton();
     return;
   }
 
   statusText.textContent = "Waiting for first move";
   gameState = "ready";
+  updateDashButton();
 }
 
 function playTone(frequency, duration) {
@@ -704,6 +843,12 @@ function handleKey(event) {
   if (event.code === "Space") {
     event.preventDefault();
     togglePause();
+    return;
+  }
+
+  if (event.code === "ShiftLeft" || event.code === "ShiftRight") {
+    event.preventDefault();
+    activateDash();
     return;
   }
 
@@ -751,14 +896,11 @@ primaryAction.addEventListener("click", () => {
 
 pauseButton.addEventListener("click", togglePause);
 restartButton.addEventListener("click", () => resetGame(true));
+dashButton.addEventListener("click", activateDash);
 soundToggle.addEventListener("click", () => {
   soundEnabled = !soundEnabled;
   soundToggle.classList.toggle("is-muted", !soundEnabled);
   soundToggle.setAttribute("aria-pressed", String(soundEnabled));
-  soundToggle.querySelector("span").textContent = soundEnabled ? "♪" : "x";
-});
-
-soundToggle.addEventListener("click", () => {
   soundToggle.querySelector("span").innerHTML = soundEnabled ? "&#9834;" : "x";
 });
 
